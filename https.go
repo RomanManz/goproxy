@@ -462,11 +462,8 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxy(httpsProxy string) func(netw
 	return proxy.NewConnectDialToProxyWithHandler(httpsProxy, nil)
 }
 
-func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(
-	httpsProxy string,
-	connectReqHandler func(req *http.Request),
-) func(network, addr string) (net.Conn, error) {
-	u, err := url.Parse(httpsProxy)
+func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(https_proxy string, connectReqHandler func(req *http.Request) error) func(network, addr string) (net.Conn, error) {
+	u, err := url.Parse(https_proxy)
 	if err != nil {
 		return nil
 	}
@@ -482,7 +479,9 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(
 				Header: make(http.Header),
 			}
 			if connectReqHandler != nil {
-				connectReqHandler(connectReq)
+				if err := connectReqHandler(connectReq); err != nil {
+					return nil, err
+				}
 			}
 			c, err := proxy.dial(&ProxyCtx{Req: &http.Request{}}, network, u.Host)
 			if err != nil {
@@ -533,7 +532,9 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(
 				Header: make(http.Header),
 			}
 			if connectReqHandler != nil {
-				connectReqHandler(connectReq)
+				if err := connectReqHandler(connectReq); err != nil {
+					return nil, err
+				}
 			}
 			_ = connectReq.Write(c)
 			// Read response.
