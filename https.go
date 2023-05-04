@@ -511,6 +511,10 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxy(httpsProxy string) func(netw
 // Proxy-Authorization to authenticate with the upstream proxy.
 // If connectReqHandler is nil, the behavior is identical to NewConnectDialToProxy.
 func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(https_proxy string, connectReqHandler func(req *http.Request) error) func(network, addr string) (net.Conn, error) {
+	return proxy.NewConnectDialToProxyWithMoreHandlers(https_proxy, nil, nil)
+}
+
+func (proxy *ProxyHttpServer) NewConnectDialToProxyWithMoreHandlers(https_proxy string, connectReqHandler func(req *http.Request) error, connectRespHandler func(req *http.Response) error) func(network, addr string) (net.Conn, error) {
 	u, err := url.Parse(https_proxy)
 	if err != nil {
 		return nil
@@ -546,7 +550,12 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(https_proxy strin
 				return nil, err
 			}
 			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
+			if connectRespHandler != nil {
+				if err := connectRespHandler(resp); err != nil {
+					c.Close()
+					return nil, err
+				}
+			} else if resp.StatusCode != 200 {
 				resp, err := io.ReadAll(io.LimitReader(resp.Body, _errorRespMaxLength))
 				if err != nil {
 					return nil, err
@@ -595,7 +604,12 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(https_proxy strin
 				return nil, err
 			}
 			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
+			if connectRespHandler != nil {
+				if err := connectRespHandler(resp); err != nil {
+					c.Close()
+					return nil, err
+				}
+			} else if resp.StatusCode != 200 {
 				body, err := io.ReadAll(io.LimitReader(resp.Body, _errorRespMaxLength))
 				if err != nil {
 					return nil, err
